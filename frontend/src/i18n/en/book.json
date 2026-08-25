@@ -331,6 +331,8 @@
       "goodreadsReviewCount": "GR #",
       "hardcoverRating": "Hardcover",
       "hardcoverReviewCount": "HC #",
+      "lubimyczytacId": "LB ID",
+      "lubimyczytacRating": "Lubimyczytać",
       "ranobedbRating": "Ranobedb"
     },
     "toast": {
