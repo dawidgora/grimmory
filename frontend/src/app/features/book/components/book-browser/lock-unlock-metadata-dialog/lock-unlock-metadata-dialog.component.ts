@@ -73,8 +73,8 @@ export class LockUnlockMetadataDialogComponent implements OnInit {
     hardcoverBookIdLocked: 'Hardcover Book ID',
     googleIdLocked: 'Google ID',
     comicvineIdLocked: 'Comicvine ID',
-    lubimyczytacIdLocked: 'Lubimyczytać ID',
-    lubimyczytacRatingLocked: 'Lubimyczytać ★',
+    lubimyczytacIdLocked: this.t.translate('metadata.lubimyczytacId'),
+    lubimyczytacRatingLocked: this.t.translate('metadata.lubimyczytacRating'),
     ranobedbIdLocked: 'Ranobedb ID',
     ranobedbRatingLocked: 'Ranobedb ★',
   };
