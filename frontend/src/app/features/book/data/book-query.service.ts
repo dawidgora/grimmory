@@ -25,6 +25,7 @@ import {
 } from './book-query-params';
 import {BookFacetGroup, BookPage} from './book-query.models';
 import {BookDetail, BookRecommendation, BookSummary} from './book-response.models';
+import {BookAction} from '../model/book.model';
 import {abortSignal, QUERY_DEFAULTS} from '../../../core/data/query-transport';
 import {AuthService} from '../../../shared/service/auth.service';
 
@@ -32,12 +33,12 @@ import {AuthService} from '../../../shared/service/auth.service';
 export class BookQueryService {
   private readonly http = inject(HttpClient);
   private readonly authService = inject(AuthService);
-  private readonly queryClient = inject(QueryClient);
+  private readonly queryClient = inject(QueryClient, {optional: true});
   private readonly baseUrl = `${API_CONFIG.BASE_URL}/api/v1/books`;
 
   constructor() {
     effect(() => {
-      if (this.authService.token() === null) {
+      if (this.authService.token() === null && this.queryClient) {
         this.queryClient.removeQueries({queryKey: bookQueryKeys.all()});
       }
     });
@@ -115,6 +116,17 @@ export class BookQueryService {
         `${this.baseUrl}/${bookId}/recommendations`,
         signal,
         new HttpParams().set('limit', limit.toString()),
+      ),
+      ...QUERY_DEFAULTS,
+    });
+  }
+
+  actions(bookId: number) {
+    return queryOptions({
+      queryKey: bookQueryKeys.bookActions(bookId),
+      queryFn: ({signal}): Promise<BookAction[]> => this.get<BookAction[]>(
+        `${this.baseUrl}/${bookId}/actions`,
+        signal,
       ),
       ...QUERY_DEFAULTS,
     });

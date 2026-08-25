@@ -592,6 +592,10 @@
   }
 }
 
+.action-group.secondary-actions {
+  flex-wrap: wrap;
+}
+
 @media (width <= 767px) {
   ::ng-deep .metadata-viewer-container .mobile-icon-only .p-button-label {
     display: none !important;

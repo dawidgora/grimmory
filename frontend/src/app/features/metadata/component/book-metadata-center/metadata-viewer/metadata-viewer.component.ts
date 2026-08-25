@@ -5,7 +5,7 @@ import {BookService} from '../../../../book/service/book.service';
 import {BookFileService} from '../../../../book/service/book-file.service';
 import {Rating, RatingRateEvent} from '@openng/optimus-ui/rating';
 import {FormsModule} from '@angular/forms';
-import {Book, BookFile, BookMetadata, BookRecommendation, BookType, ComicMetadata, FileInfo, ReadStatus} from '../../../../book/model/book.model';
+import {Book, BookAction, BookFile, BookMetadata, BookRecommendation, BookType, ComicMetadata, FileInfo, ReadStatus} from '../../../../book/model/book.model';
 import {UrlHelperService} from '../../../../../shared/service/url-helper.service';
 import {CoverComponent} from '../../../../../shared/components/cover/cover.component';
 import {UserService} from '../../../../settings/user-management/user.service';
@@ -40,6 +40,10 @@ import {AuthorService} from '../../../../author-browser/service/author.service';
 import {Dialog} from '@openng/optimus-ui/dialog';
 import {Checkbox} from '@openng/optimus-ui/checkbox';
 import DOMPurify from 'dompurify';
+import {injectMutation, injectQuery} from '@tanstack/angular-query-experimental';
+import {BookQueryService} from '../../../../book/data/book-query.service';
+import {BookCommandService} from '../../../../book/data/book-command.service';
+import {ExecuteBookActionResult} from '../../../../book/data/book-command.models';
 
 
 @Component({
@@ -51,7 +55,23 @@ import DOMPurify from 'dompurify';
 })
 export class MetadataViewerComponent implements OnInit, AfterViewChecked {
   private bookService = inject(BookService);
+  private readonly bookQueryService = inject(BookQueryService);
+  private readonly bookCommandService = inject(BookCommandService);
   private currentBook = signal<Book | null>(null);
+  private readonly actionsQuery = injectQuery(() => {
+    const bookId = this.currentBook()?.id;
+    if (bookId == null) {
+      return {queryKey: ['books', 'query', 'actions', -1] as const, queryFn: async (): Promise<BookAction[]> => [], enabled: false};
+    }
+    return this.bookQueryService.actions(bookId);
+  });
+  readonly actionMutation = injectMutation(() => this.bookCommandService.executeAction());
+  readonly availableActions = computed(() => this.actionsQuery.data() ?? []);
+  readonly actionMenuItems = computed<MenuItem[]>(() => this.availableActions().map(action => ({
+    label: action.label,
+    icon: action.icon || 'pi pi-bolt',
+    command: () => this.executeAction(action),
+  })));
   private readonly seriesLookupBookId = computed(() => {
     const metadata = this.currentBook()?.metadata;
     return metadata?.seriesName ? metadata.bookId : null;
@@ -481,6 +501,23 @@ export class MetadataViewerComponent implements OnInit, AfterViewChecked {
     if (settings) {
       this.amazonDomain = settings.metadataProviderSettings?.amazon?.domain ?? 'com';
     }
+  }
+
+  executeAction(action: BookAction): void {
+    const bookId = this.currentBook()?.id;
+    if (bookId == null || this.actionMutation.isPending()) return;
+    this.actionMutation.mutate({bookId, actionId: action.id}, {
+      onSuccess: (result: ExecuteBookActionResult) => this.handleActionResult(result),
+      onError: (error: {error?: {message?: string}; message?: string}) => this.messageService.add({severity: 'error', summary: this.t.translate('metadata.viewer.actions.errorSummary'), detail: error?.error?.message || error?.message || this.t.translate('metadata.viewer.actions.errorDetail')}),
+    });
+  }
+
+  handleActionResult(result: ExecuteBookActionResult): void {
+    this.messageService.add({
+        severity: result.success ? 'success' : 'error',
+        summary: this.t.translate(result.success ? 'metadata.viewer.actions.successSummary' : 'metadata.viewer.actions.errorSummary'),
+        detail: result.message,
+    });
   }
 
   ngAfterViewChecked(): void {
