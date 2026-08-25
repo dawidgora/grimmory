@@ -28,6 +28,7 @@ import org.booklore.repository.BookdropFileRepository;
 import org.booklore.repository.LibraryRepository;
 import org.booklore.service.NotificationService;
 import org.booklore.service.event.BookAddedEvent;
+import org.booklore.service.event.BookImportedEvent;
 import org.booklore.service.file.FileMovingHelper;
 import org.booklore.service.fileprocessor.BookFileProcessor;
 import org.booklore.service.fileprocessor.BookFileProcessorRegistry;
@@ -486,6 +487,7 @@ public class BookDropService {
 
         metadataRefreshService.updateBookMetadata(context);
         eventPublisher.publishEvent(new BookAddedEvent(fileProcessResult.getBook()));
+        eventPublisher.publishEvent(new BookImportedEvent(fileProcessResult.getBook()));
 
         notificationService.sendMessage(Topic.BOOK_ADD, fileProcessResult.getBook());
 

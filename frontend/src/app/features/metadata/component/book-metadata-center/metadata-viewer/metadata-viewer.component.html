@@ -676,6 +676,10 @@
                 </div>
               }
               <div class="action-group secondary-actions">
+                @if (availableActions().length > 0) {
+                  <p-button [label]="t('actions.label')" icon="pi pi-bolt" severity="help" outlined [disabled]="actionMutation.isPending()" [attr.aria-label]="t('actions.ariaLabel')" (onClick)="actionsMenu.toggle($event)"></p-button>
+                  <p-tieredMenu #actionsMenu [model]="actionMenuItems()" [popup]="true" appendTo="body"></p-tieredMenu>
+                }
                 @if ((currentUser.permissions.canDownload || currentUser.permissions.admin) && hasAnyFiles(book)) {
                   @if ((book!.alternativeFormats && book!.alternativeFormats.length > 0) || (book!.supplementaryFiles && book!.supplementaryFiles.length > 0)) {
                     <p-splitbutton [label]="(getDisplayFormat(book.primaryFile) ?? 'File') + ' · ' + formatFileSize(book.primaryFile)" icon="pi pi-download" [model]="downloadMenuItems()" (onClick)="download(book)" severity="success" outlined class="mobile-icon-only"/>

@@ -1,6 +1,7 @@
 import {HttpClient, HttpParams} from '@angular/common/http';
 import {inject, Injectable} from '@angular/core';
 import {lastValueFrom} from 'rxjs';
+import {mutationOptions} from '@tanstack/angular-query-experimental';
 
 import {API_CONFIG} from '../../../core/config/api-config';
 import {reconcilingMutationOptions} from '../../../core/data/command-options';
@@ -19,6 +20,8 @@ import {
   ResetBookProgressVariables,
   SetAllBookMetadataLocksVariables,
   SetBookReadStatusVariables,
+  ExecuteBookActionVariables,
+  ExecuteBookActionResult,
 } from './book-command.models';
 import {applyBookQueryChangeSet} from './book-query-cache';
 import {KnownBookReadStatus} from './book-response.models';
@@ -49,6 +52,18 @@ export class BookCommandService {
           changedBookIds: results.map(result => result.bookId),
         })),
       ),
+    });
+  }
+
+  executeAction() {
+    return mutationOptions({
+      mutationKey: bookCommandKeys.executeAction(),
+      scope: bookCommandScopes.actions,
+      mutationFn: (variables: ExecuteBookActionVariables): Promise<ExecuteBookActionResult> =>
+        lastValueFrom(this.http.post<ExecuteBookActionResult>(
+          `${this.baseUrl}/${variables.bookId}/actions/${encodeURIComponent(variables.actionId)}`,
+          null,
+        )),
     });
   }
 

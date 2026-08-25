@@ -14,6 +14,7 @@ import org.booklore.repository.BookAdditionalFileRepository;
 import org.booklore.repository.BookRepository;
 import org.booklore.repository.LibraryRepository;
 import org.booklore.service.event.BookAddedEvent;
+import org.booklore.service.event.BookImportedEvent;
 import org.booklore.service.file.FileFingerprint;
 import org.booklore.service.fileprocessor.BookFileProcessor;
 import org.booklore.service.fileprocessor.BookFileProcessorRegistry;
@@ -88,6 +89,7 @@ public class BookGroupProcessor {
         }
 
         eventPublisher.publishEvent(new BookAddedEvent(book));
+        eventPublisher.publishEvent(new BookImportedEvent(book));
     }
 
     private Optional<LibraryFile> findBestPrimaryFile(List<LibraryFile> group, LibraryEntity library) {

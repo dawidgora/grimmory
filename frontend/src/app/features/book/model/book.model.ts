@@ -60,6 +60,19 @@ export interface Book extends FileInfo {
   [key: string]: unknown;
 }
 
+/** An action supplied by a backend extension for a book. */
+export interface BookAction {
+  id: string;
+  label: string;
+  description?: string;
+  icon?: string;
+}
+
+export interface BookActionExecutionResult {
+  success: boolean;
+  message: string;
+}
+
 export interface EpubProgress {
   cfi?: string | null;
   href?: string;

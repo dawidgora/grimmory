@@ -235,6 +235,13 @@
     "fileName": "File"
   },
   "viewer": {
+    "actions": {
+      "label": "Actions",
+      "ariaLabel": "Book actions",
+      "successSummary": "Action completed",
+      "errorSummary": "Action failed",
+      "errorDetail": "The action could not be completed. Please try again."
+    },
     "metadataLocked": "This book metadata is locked.",
     "metadataUnlocked": "This book metadata is unlocked.",
     "genresLabel": "Genres:",

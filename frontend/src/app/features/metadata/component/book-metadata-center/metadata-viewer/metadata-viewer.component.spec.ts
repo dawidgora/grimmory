@@ -20,6 +20,9 @@ import {AuthorService} from '../../../../author-browser/service/author.service';
 import {Router} from '@angular/router';
 import {BookNavigationService} from '../../../../book/service/book-navigation.service';
 import {BookMetadataHostService} from '../../../../../shared/service/book-metadata-host.service';
+import {BookQueryService} from '../../../../book/data/book-query.service';
+import {BookCommandService} from '../../../../book/data/book-command.service';
+import {QueryClient} from '@tanstack/angular-query-experimental';
 import {MetadataViewerComponent} from './metadata-viewer.component';
 
 interface CurrentUser {
@@ -98,6 +101,8 @@ describe('MetadataViewerComponent', () => {
   const getCoverUrl = vi.fn((bookId: number, updatedOn?: string) => `cover:${bookId}:${updatedOn ?? 'none'}`);
   const getAudiobookCoverUrl = vi.fn((bookId: number, updatedOn?: string) => `audio:${bookId}:${updatedOn ?? 'none'}`);
   const getThumbnailUrl = vi.fn((bookId: number, updatedOn?: string) => `thumb:${bookId}:${updatedOn ?? 'none'}`);
+  const queryClient = new QueryClient();
+  let actionResult = {success: true, message: 'Done'};
 
   function createFile(
     id: number,
@@ -156,6 +161,7 @@ describe('MetadataViewerComponent', () => {
     canNavigatePrevious.set(false);
     canNavigateNext.set(false);
     currentPosition.set(null);
+    actionResult = {success: true, message: 'Done'};
 
     readBook.mockClear();
     togglePhysicalFlag.mockClear();
@@ -252,6 +258,9 @@ describe('MetadataViewerComponent', () => {
           },
         },
         {provide: BookMetadataHostService, useValue: {switchBook}},
+        {provide: QueryClient, useValue: queryClient},
+        {provide: BookQueryService, useValue: {actions: () => ({queryKey: ['books', 'query', 'actions', 1], queryFn: async () => []})}},
+        {provide: BookCommandService, useValue: {executeAction: () => ({mutationFn: async () => actionResult})}},
       ],
     });
   });
@@ -497,5 +506,16 @@ describe('MetadataViewerComponent', () => {
     expect(component.getChannelLabel(1)).toBe('metadata.viewer.channelMono');
     expect(component.getChannelLabel(2)).toBe('metadata.viewer.channelStereo');
     expect(component.getChannelLabel(6)).toBe('metadata.viewer.channelMultiple:count=6');
+  });
+
+  it('reports an unsuccessful action result as an error toast', async () => {
+    const component = createComponent();
+    component.handleActionResult({success: false, message: 'Conversion was not available.'});
+
+    await vi.waitFor(() => expect(messageAdd).toHaveBeenCalledWith({
+      severity: 'error',
+      summary: 'metadata.viewer.actions.errorSummary',
+      detail: 'Conversion was not available.',
+    }));
   });
 });

@@ -29,4 +29,6 @@ export const bookQueryKeys = {
     [...bookQueryKeys.recommendations(), bookId] as const,
   recommendation: (bookId: number, limit: number) =>
     [...bookQueryKeys.recommendationQueries(bookId), {limit}] as const,
+  actions: () => [...bookQueryKeys.all(), 'actions'] as const,
+  bookActions: (bookId: number) => [...bookQueryKeys.actions(), bookId] as const,
 };

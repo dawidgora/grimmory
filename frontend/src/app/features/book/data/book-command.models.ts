@@ -1,11 +1,19 @@
 import {CommandOutcome} from '../../../core/data/command-options';
 import {KnownBookReadStatus} from './book-response.models';
 import {BookQueryChangeSet} from './book-query-cache';
+import {BookActionExecutionResult} from '../model/book.model';
 
 export interface SetBookReadStatusVariables {
   readonly bookIds: readonly number[];
   readonly status: KnownBookReadStatus;
 }
+
+export interface ExecuteBookActionVariables {
+  readonly bookId: number;
+  readonly actionId: string;
+}
+
+export type ExecuteBookActionResult = BookActionExecutionResult;
 
 export interface SetBookReadStatusResult {
   readonly bookId: number;
