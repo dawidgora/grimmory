@@ -19,8 +19,6 @@ function makeBook(id: number, title: string): Book {
       authors: ['Test Author'],
       categories: ['Fantasy'],
       amazonRating: 4.2,
-      lubimyczytacId: 'lub-321',
-      lubimyczytacRating: 4.6,
       allMetadataLocked: false,
     },
     readStatus: ReadStatus.READING,
@@ -106,18 +104,6 @@ describe('BookTableRowComponent', () => {
     expect(lockButton?.getAttribute('aria-pressed')).toBe('false');
     expect(coverLink?.getAttribute('aria-label')).toBe('Alpha');
     expect(cover?.getAttribute('aria-hidden')).toBe('true');
-  });
-
-  it('renders Lubimyczytać ID as metadata text and rating with the provider rating component', () => {
-    fixture.componentRef.setInput('book', makeBook(1, 'Alpha'));
-    fixture.componentRef.setInput('cellIds', ['lubimyczytacId', 'lubimyczytacRating']);
-    fixture.detectChanges();
-
-    const host = fixture.nativeElement as HTMLElement;
-    const cells = host.querySelectorAll<HTMLElement>('.book-table-cell');
-    expect(cells[0]?.textContent?.trim()).toBe('lub-321');
-    expect(cells[1]?.querySelector('app-rating')).toBeTruthy();
-    expect(cells[1]?.querySelector('.rating-wrapper')?.getAttribute('title')).toBe('4.6');
   });
 
   it('formats file sizes with the matching unit', () => {

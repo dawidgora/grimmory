@@ -294,8 +294,6 @@ export class BookTableRowComponent {
         return metadata[field] ?? '';
       case 'isbn':
         return metadata.isbn13 ?? metadata.isbn10 ?? '';
-      case 'lubimyczytacId':
-        return metadata.lubimyczytacId ?? '';
       default:
         return '';
     }

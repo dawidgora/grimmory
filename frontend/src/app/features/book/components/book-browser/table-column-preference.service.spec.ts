@@ -74,9 +74,6 @@ describe('TableColumnPreferenceService', () => {
       field: 'readStatus',
       header: 't:book.columnPref.columns.readStatus'
     });
-
-    expect(service.allColumns.map(column => column.field)).toContain('lubimyczytacId');
-    expect(service.allColumns.map(column => column.field)).toContain('lubimyczytacRating');
   });
 
   it('skips persistence when there is no current user', () => {
