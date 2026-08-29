@@ -43,7 +43,7 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
 
     // Located in Goodreads _app JS chunk, visible in DevTools → Network → GraphQL requests
     private static final String GRAPHQL_ENDPOINT = "https://kxbwmqov6jgg3daaamb744ycu4.appsync-api.us-east-1.amazonaws.com/graphql";
-    private static final String API_KEY = "da2-xpgsdydkbregjhpr6ejzqdhuwy";
+    private static final String API_KEY = "da2-d2fyuybwsbf3poyquvbp2mbiwu";
     private static final String GRAPHQL_QUERY = """
             query getBookPageData($legacyBookId: Int!) {
                 getBookByLegacyId(legacyId: $legacyBookId) {
