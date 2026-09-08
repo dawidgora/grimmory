@@ -55,8 +55,21 @@ public class BookQueryService {
         return findBooksPaged(visibleBooks(libraryIds, userId), pageable, userId);
     }
 
+    private Specification<BookEntity> distinct(Specification<BookEntity> filter) {
+        return (root, query, cb) -> {
+            // We need to query distinct because otherwise the `JOIN` + `LIMIT` cause the page sizes to be wrong.
+            //
+            // I've tried a few ways to just get only what we need - distinct IDs from the repository.
+            // With Projections, we ran into issues with the order by not getting applied.  I'm sure
+            // there's a better way but right now this works well enough, even though it over-fetches.
+
+            query.distinct(true);
+            return filter.toPredicate(root, query, cb);
+        };
+    }
+
     public Page<Book> findBooksPaged(Specification<BookEntity> spec, Pageable pageable, Long userId) {
-        Page<BookEntity> page = bookRepository.findAll(spec, pageable);
+        Page<BookEntity> page = bookRepository.findAll(distinct(spec), pageable);
         Map<Long, BookEntity> booksById = bookRepository
                 .findAllWithMetadataByIds(page.getContent().stream().map(BookEntity::getId).collect(Collectors.toSet()))
                 .stream()

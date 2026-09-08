@@ -1,5 +1,7 @@
 package org.booklore.service.metadata.writer;
 
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.booklore.model.MetadataClearFlags;
 import org.booklore.model.dto.settings.AppSettings;
 import org.booklore.model.dto.settings.MetadataPersistenceSettings;
@@ -343,8 +345,74 @@ class EpubMetadataWriterTest {
     }
 
     @Nested
-    @DisplayName("Mimetype ZIP Entry Tests")
+    @DisplayName("ZIP Entry Tests")
     class MimetypeZipTests {
+
+        @Test
+        @DisplayName("Should handle duplicate entries in zip")
+        void saveMetadata_handlesDuplicateCovers() throws Exception {
+            String opfContent = """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+                        <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+                            <dc:title>Original Title</dc:title>
+                            <meta name="cover" content="cover-image"/>
+                        </metadata>
+                        <manifest>
+                            <item id="cover-image" href="cover.png" media-type="image/png" properties="cover-image"/>
+                        </manifest>
+                    </package>""";
+
+            byte[] coverImageA = new byte[]{0x0A};
+            byte[] coverImageB = new byte[]{0x0B};
+            byte[] coverImageC = new byte[]{0x0C};
+
+            File coverImageFile = tempDir.resolve("new-cover-" + System.nanoTime() + ".png").toFile();
+            Files.write(coverImageFile.toPath(), coverImageC);
+
+            File epubFile = tempDir.resolve("test-duplicate-" + System.nanoTime() + ".epub").toFile();
+
+            try (var zos = new ZipArchiveOutputStream(new FileOutputStream(epubFile))) {
+                String containerXml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+                    <rootfiles>
+                        <rootfile full-path="content.opf" media-type="application/oebps-package+xml"/>
+                    </rootfiles>
+                </container>
+                """;
+
+                zos.putArchiveEntry(new ZipArchiveEntry("mimetype"));
+                zos.write("application/epub+zip".getBytes(StandardCharsets.UTF_8));
+                zos.closeArchiveEntry();
+
+                zos.putArchiveEntry(new ZipArchiveEntry("META-INF/container.xml"));
+                zos.write(containerXml.getBytes(StandardCharsets.UTF_8));
+                zos.closeArchiveEntry();
+
+                zos.putArchiveEntry(new ZipArchiveEntry("content.opf"));
+                zos.write(opfContent.getBytes(StandardCharsets.UTF_8));
+                zos.closeArchiveEntry();
+
+                zos.putArchiveEntry(new ZipArchiveEntry("cover.png"));
+                zos.write(coverImageA);
+                zos.closeArchiveEntry();
+
+                zos.putArchiveEntry(new ZipArchiveEntry("cover.png"));
+                zos.write(coverImageB);
+                zos.closeArchiveEntry();
+            }
+
+            writer.saveMetadataToFile(epubFile, metadata, coverImageFile.toString(), new MetadataClearFlags());
+
+            try (ZipFile zf = new ZipFile(epubFile)) {
+                var entry = zf.getEntry("cover.png");
+
+                try (InputStream is = zf.getInputStream(entry)) {
+                    assertThat(is.readAllBytes()).isEqualTo(coverImageC);
+                }
+            }
+        }
 
         @Test
         @DisplayName("Should store mimetype as first uncompressed entry in ZIP")

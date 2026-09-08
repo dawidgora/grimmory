@@ -11,8 +11,6 @@ import org.springframework.stereotype.Component;
 public class AppMigrationStartup {
 
     private final AppMigrationService appMigrationService;
-    private final GenerateInstallationIdMigration generateInstallationIdMigration;
-    private final MigrateInstallationIdToJsonMigration migrateInstallationIdToJsonMigration;
     private final PopulateMissingFileSizesMigration populateMissingFileSizesMigration;
     private final PopulateMetadataScoresMigration populateMetadataScoresMigration;
     private final PopulateFileHashesMigration populateFileHashesMigration;
@@ -25,8 +23,6 @@ public class AppMigrationStartup {
 
     @EventListener(ApplicationReadyEvent.class)
     public void runMigrationsOnce() {
-        appMigrationService.executeMigration(generateInstallationIdMigration);
-        appMigrationService.executeMigration(migrateInstallationIdToJsonMigration);
         appMigrationService.executeMigration(populateMissingFileSizesMigration);
         appMigrationService.executeMigration(populateMetadataScoresMigration);
         appMigrationService.executeMigration(populateFileHashesMigration);
