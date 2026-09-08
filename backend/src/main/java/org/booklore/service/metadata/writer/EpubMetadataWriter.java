@@ -538,6 +538,12 @@ public class EpubMetadataWriter implements MetadataWriter {
             if (!entryPath.startsWith(targetDir)) {
                 throw new IOException("ZIP entry outside target directory: " + name);
             }
+
+            if (Files.exists(entryPath)) {
+                log.warn("EPUB Entry already exists, skipping: {}", entryPath);
+                continue;
+            }
+
             Files.createDirectories(entryPath.getParent());
             archiveService.extractEntryToPath(zipPath, name, entryPath);
         }

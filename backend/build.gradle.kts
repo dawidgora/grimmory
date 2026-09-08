@@ -9,7 +9,7 @@ plugins {
     java
     id("org.springframework.boot") version "4.1.1"
     id("io.spring.dependency-management") version "1.1.7"
-    id("org.hibernate.orm") version "7.4.6.Final"
+    id("org.hibernate.orm") version "7.4.7.Final"
     id("com.github.ben-manes.versions") version "0.61.0"
     jacoco
 }
@@ -120,11 +120,11 @@ dependencies {
     // --- Database & Migration ---
     implementation("org.mariadb.jdbc:mariadb-java-client:3.5.10")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
-    implementation("org.flywaydb:flyway-mysql:13.3.0")
+    implementation("org.flywaydb:flyway-mysql:13.5.0")
 
     // --- Lombok (For Clean Code) ---
-    compileOnly("org.projectlombok:lombok:1.18.46")
-    annotationProcessor("org.projectlombok:lombok:1.18.46")
+    compileOnly("org.projectlombok:lombok:1.18.48")
+    annotationProcessor("org.projectlombok:lombok:1.18.48")
 
     // --- Book & Image Processing ---
     val pdfium4jVersion = if (useLocalLibs) "+" else "1.2.0"
@@ -147,7 +147,7 @@ dependencies {
     implementation("com.github.junrar:junrar:8.1.0")
 
     // --- JSON & Web Scraping ---
-    implementation("org.jsoup:jsoup:1.23.1")
+    implementation("org.jsoup:jsoup:1.23.2")
 
     // --- i18n / Language Normalization ---
     implementation("com.neovisionaries:nv-i18n:1.29")
@@ -170,7 +170,7 @@ dependencies {
     runtimeOnly("org.glassfish.jaxb:jaxb-runtime:4.0.9")
 
     // --- Template Engine ---
-    implementation("org.freemarker:freemarker:2.3.34")
+    implementation("org.freemarker:freemarker:2.3.35")
 
     // --- Jackson 3 ---
     implementation(platform("tools.jackson:jackson-bom:3.2.2"))

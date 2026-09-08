@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 
 public class AppBookSpecification {
 
@@ -59,6 +60,70 @@ public class AppBookSpecification {
             throw new APIException("Invalid " + paramName + " values: " + invalid, HttpStatus.BAD_REQUEST);
         }
         return result;
+    }
+
+    private record NumericRange<T>(T min, T max) {
+    }
+
+    private static <T extends Comparable<? super T>> List<NumericRange<T>> parseNumericRanges(List<String> values, Function<String, T> parser, String paramName) {
+        List<String> invalid = new ArrayList<>();
+        List<NumericRange<T>> ranges = new ArrayList<>();
+        for (String value : values) {
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            NumericRange<T> range = parseNumericRange(value.trim(), parser);
+            if (range == null) {
+                invalid.add(value.trim());
+            } else {
+                ranges.add(range);
+            }
+        }
+        if (!invalid.isEmpty()) {
+            throw new APIException("Invalid " + paramName + " values: " + invalid
+                    + ". Expected a number, min..max, min..*, or *..max. Minimum must not exceed maximum.", HttpStatus.BAD_REQUEST);
+        }
+        return ranges;
+    }
+
+    private static <T extends Comparable<? super T>> NumericRange<T> parseNumericRange(String value, Function<String, T> parser) {
+        try {
+            int separator = value.indexOf("..");
+            if (separator < 0) {
+                T exact = parser.apply(value);
+                return new NumericRange<>(exact, exact);
+            }
+            String minPart = value.substring(0, separator).trim();
+            String maxPart = value.substring(separator + 2).trim();
+            if (minPart.equals("*") && maxPart.equals("*")) {
+                return null;
+            }
+            T min = minPart.equals("*") ? null : parser.apply(minPart);
+            T max = maxPart.equals("*") ? null : parser.apply(maxPart);
+            if (min != null && max != null && min.compareTo(max) > 0) {
+                return null;
+            }
+            return new NumericRange<>(min, max);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static <T extends Comparable<? super T>> Predicate rangesPredicate(
+            CriteriaBuilder cb, Expression<T> field, List<NumericRange<T>> ranges) {
+        List<Predicate> predicates = new ArrayList<>();
+        for (NumericRange<T> range : ranges) {
+            if (range.min() != null && range.max() != null) {
+                predicates.add(cb.and(
+                        cb.greaterThanOrEqualTo(field, range.min()),
+                        cb.lessThanOrEqualTo(field, range.max())));
+            } else if (range.min() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(field, range.min()));
+            } else {
+                predicates.add(cb.lessThanOrEqualTo(field, range.max()));
+            }
+        }
+        return cb.or(predicates.toArray(Predicate[]::new));
     }
 
     @SuppressWarnings("unchecked")
@@ -566,29 +631,13 @@ public class AppBookSpecification {
         };
     }
 
-    public static Specification<BookEntity> withAgeRatings(List<String> rangeIds, String mode) {
+    public static Specification<BookEntity> withAgeRatings(List<String> values, String mode) {
         return (root, query, cb) -> {
-            List<Integer> ids = parseIntList(rangeIds, "ageRating");
-            if (ids.isEmpty()) return cb.conjunction();
+            List<NumericRange<Integer>> ranges = parseNumericRanges(values, Integer::valueOf, "ageRating");
+            if (ranges.isEmpty()) return cb.conjunction();
             Join<BookEntity, BookMetadataEntity> metadataJoin = getOrCreateJoin(root, "metadata", JoinType.INNER);
             Expression<Integer> ageRating = metadataJoin.get("ageRating");
-            
-            // Age rating ranges from frontend config (mirrored here for performance)
-            // 0: [0, 6), 6: [6, 10), 10: [10, 13), 13: [13, 16), 16: [16, 18), 18: [18, 21), 21: [21, inf)
-            List<Predicate> predicates = new ArrayList<>();
-            for (Integer id : ids) {
-                predicates.add(switch (id) {
-                    case 0 -> cb.and(cb.greaterThanOrEqualTo(ageRating, 0), cb.lessThan(ageRating, 6));
-                    case 6 -> cb.and(cb.greaterThanOrEqualTo(ageRating, 6), cb.lessThan(ageRating, 10));
-                    case 10 -> cb.and(cb.greaterThanOrEqualTo(ageRating, 10), cb.lessThan(ageRating, 13));
-                    case 13 -> cb.and(cb.greaterThanOrEqualTo(ageRating, 13), cb.lessThan(ageRating, 16));
-                    case 16 -> cb.and(cb.greaterThanOrEqualTo(ageRating, 16), cb.lessThan(ageRating, 18));
-                    case 18 -> cb.and(cb.greaterThanOrEqualTo(ageRating, 18), cb.lessThan(ageRating, 21));
-                    case 21 -> cb.greaterThanOrEqualTo(ageRating, 21);
-                    default -> throw new APIException("Invalid ageRating bucket ID: " + id, HttpStatus.BAD_REQUEST);
-                });
-            }
-            Predicate combined = cb.or(predicates.toArray(Predicate[]::new));
+            Predicate combined = rangesPredicate(cb, ageRating, ranges);
             return "not".equals(mode) ? cb.not(combined) : combined;
         };
     }
@@ -601,76 +650,46 @@ public class AppBookSpecification {
         };
     }
 
-    public static Specification<BookEntity> withMatchScores(List<String> rangeIds, String mode) {
+    public static Specification<BookEntity> withMatchScores(List<String> values, String mode) {
         return (root, query, cb) -> {
-            List<Integer> ids = parseIntList(rangeIds, "matchScore");
-            if (ids.isEmpty()) return cb.conjunction();
+            List<NumericRange<Float>> ranges = parseNumericRanges(values, Float::valueOf, "matchScore");
+            if (ranges.isEmpty()) return cb.conjunction();
             Expression<Float> score = root.get("metadataMatchScore");
-            
-            List<Predicate> predicates = new ArrayList<>();
-            for (Integer id : ids) {
-                predicates.add(switch (id) {
-                    case 0 -> cb.greaterThanOrEqualTo(score, 0.95f);
-                    case 1 -> cb.and(cb.greaterThanOrEqualTo(score, 0.90f), cb.lessThan(score, 0.95f));
-                    case 2 -> cb.and(cb.greaterThanOrEqualTo(score, 0.80f), cb.lessThan(score, 0.90f));
-                    case 3 -> cb.and(cb.greaterThanOrEqualTo(score, 0.70f), cb.lessThan(score, 0.80f));
-                    case 4 -> cb.and(cb.greaterThanOrEqualTo(score, 0.50f), cb.lessThan(score, 0.70f));
-                    case 5 -> cb.and(cb.greaterThanOrEqualTo(score, 0.30f), cb.lessThan(score, 0.50f));
-                    case 6 -> cb.and(cb.greaterThanOrEqualTo(score, 0.00f), cb.lessThan(score, 0.30f));
-                    default -> throw new APIException("Invalid matchScore bucket ID: " + id, HttpStatus.BAD_REQUEST);
-                });
-            }
-            Predicate combined = cb.or(predicates.toArray(Predicate[]::new));
+            Predicate combined = rangesPredicate(cb, score, ranges);
             return "not".equals(mode) ? cb.not(combined) : combined;
         };
     }
 
     public static Specification<BookEntity> withPublishedYears(List<String> years, String mode) {
         return (root, query, cb) -> {
-            if (years.isEmpty()) return cb.conjunction();
-            List<Integer> parsedYears = parseIntList(years, "publishedDate");
-            if (parsedYears.isEmpty()) return cb.conjunction();
+            List<NumericRange<Integer>> ranges = parseNumericRanges(years, Integer::valueOf, "publishedDate");
+            if (ranges.isEmpty()) return cb.conjunction();
             Join<BookEntity, BookMetadataEntity> metadataJoin = getOrCreateJoin(root, "metadata", JoinType.INNER);
             Expression<Integer> yearExpr = cb.function("YEAR", Integer.class, metadataJoin.get("publishedDate"));
-            Predicate combined = yearExpr.in(parsedYears);
+            Predicate combined = rangesPredicate(cb, yearExpr, ranges);
             return "not".equals(mode) ? cb.not(combined) : combined;
         };
     }
 
-    public static Specification<BookEntity> withFileSizes(List<String> rangeIds, String mode) {
+    public static Specification<BookEntity> withFileSizes(List<String> values, String mode) {
         return (root, query, cb) -> {
-            List<Integer> ids = parseIntList(rangeIds, "fileSize");
-            if (ids.isEmpty()) return cb.conjunction();
-            
-            Subquery<Long> sub = query.subquery(Long.class);
-            Root<BookEntity> subRoot = sub.correlate(root);
-            Join<BookEntity, BookFileEntity> bfJoin = subRoot.join("bookFiles", JoinType.INNER);
-            
-            Subquery<Long> minIdSub = query.subquery(Long.class);
-            Root<BookEntity> minIdRoot = minIdSub.correlate(root);
-            Join<BookEntity, BookFileEntity> minIdJoin = minIdRoot.join("bookFiles", JoinType.INNER);
-            minIdSub.select(cb.min(minIdJoin.get("id")))
-                    .where(cb.equal(minIdJoin.get("isBookFormat"), true));
+            List<NumericRange<Long>> ranges = parseNumericRanges(values, Long::valueOf, "fileSize");
+            if (ranges.isEmpty()) return cb.conjunction();
 
-            Expression<Long> size = bfJoin.get("fileSizeKb");
-            List<Predicate> predicates = new ArrayList<>();
-            for (Integer id : ids) {
-                predicates.add(switch (id) {
-                    case 0 -> cb.and(cb.greaterThanOrEqualTo(size, 0L), cb.lessThan(size, 1024L));
-                    case 1 -> cb.and(cb.greaterThanOrEqualTo(size, 1024L), cb.lessThan(size, 10240L));
-                    case 2 -> cb.and(cb.greaterThanOrEqualTo(size, 10240L), cb.lessThan(size, 51200L));
-                    case 3 -> cb.and(cb.greaterThanOrEqualTo(size, 51200L), cb.lessThan(size, 102400L));
-                    case 4 -> cb.and(cb.greaterThanOrEqualTo(size, 102400L), cb.lessThan(size, 512000L));
-                    case 5 -> cb.and(cb.greaterThanOrEqualTo(size, 512000L), cb.lessThan(size, 1048576L));
-                    case 6 -> cb.and(cb.greaterThanOrEqualTo(size, 1048576L), cb.lessThan(size, 2097152L));
-                    case 7 -> cb.greaterThanOrEqualTo(size, 2097152L);
-                    default -> throw new APIException("Invalid fileSize bucket ID: " + id, HttpStatus.BAD_REQUEST);
-                });
-            }
-            
-            sub.select(cb.literal(1L))
-               .where(cb.equal(bfJoin.get("id"), minIdSub),
-                      cb.or(predicates.toArray(Predicate[]::new)));
+            // Matches against the book's first book-format file.
+            Subquery<Long> sub = query.subquery(Long.class);
+            Root<BookFileEntity> file = sub.from(BookFileEntity.class);
+            Subquery<Long> earlier = sub.subquery(Long.class);
+            Root<BookFileEntity> earlierFile = earlier.from(BookFileEntity.class);
+            earlier.select(cb.literal(1L)).where(
+                    cb.equal(earlierFile.get("book").get("id"), root.get("id")),
+                    cb.equal(earlierFile.get("isBookFormat"), true),
+                    cb.lessThan(earlierFile.get("id"), file.get("id")));
+            sub.select(cb.literal(1L)).where(
+                    cb.equal(file.get("book").get("id"), root.get("id")),
+                    cb.equal(file.get("isBookFormat"), true),
+                    cb.not(cb.exists(earlier)),
+                    rangesPredicate(cb, file.get("fileSizeKb"), ranges));
 
             return "not".equals(mode) ? cb.not(cb.exists(sub)) : cb.exists(sub);
         };
@@ -717,49 +736,24 @@ public class AppBookSpecification {
     }
 
     private static Specification<BookEntity> buildRatingRangeSpec(
-            List<String> rangeIds, String mode, String fieldName) {
+            List<String> values, String mode, String fieldName) {
         return (root, query, cb) -> {
-            List<Integer> ids = parseIntList(rangeIds, fieldName);
-            if (ids.isEmpty()) return cb.conjunction();
+            List<NumericRange<Double>> ranges = parseNumericRanges(values, Double::valueOf, fieldName);
+            if (ranges.isEmpty()) return cb.conjunction();
             Join<BookEntity, BookMetadataEntity> metadataJoin = getOrCreateJoin(root, "metadata", JoinType.INNER);
             Expression<Double> rating = metadataJoin.get(fieldName);
-            List<Predicate> predicates = new ArrayList<>();
-            for (Integer id : ids) {
-                predicates.add(switch (id) {
-                    case 5 -> cb.greaterThanOrEqualTo(rating, 4.5);
-                    case 4 -> cb.and(cb.greaterThanOrEqualTo(rating, 4.0), cb.lessThan(rating, 4.5));
-                    case 3 -> cb.and(cb.greaterThanOrEqualTo(rating, 3.0), cb.lessThan(rating, 4.0));
-                    case 2 -> cb.and(cb.greaterThanOrEqualTo(rating, 2.0), cb.lessThan(rating, 3.0));
-                    case 1 -> cb.and(cb.greaterThanOrEqualTo(rating, 1.0), cb.lessThan(rating, 2.0));
-                    case 0 -> cb.lessThan(rating, 1.0);
-                    default -> throw new APIException("Invalid " + fieldName + " bucket ID: " + id, HttpStatus.BAD_REQUEST);
-                });
-            }
-            Predicate combined = cb.or(predicates.toArray(Predicate[]::new));
+            Predicate combined = rangesPredicate(cb, rating, ranges);
             return "not".equals(mode) ? cb.not(combined) : combined;
         };
     }
 
-    public static Specification<BookEntity> withPageCounts(List<String> rangeIds, String mode) {
+    public static Specification<BookEntity> withPageCounts(List<String> values, String mode) {
         return (root, query, cb) -> {
-            List<Integer> ids = parseIntList(rangeIds, "pageCount");
-            if (ids.isEmpty()) return cb.conjunction();
+            List<NumericRange<Integer>> ranges = parseNumericRanges(values, Integer::valueOf, "pageCount");
+            if (ranges.isEmpty()) return cb.conjunction();
             Join<BookEntity, BookMetadataEntity> metadataJoin = getOrCreateJoin(root, "metadata", JoinType.INNER);
             Expression<Integer> count = metadataJoin.get("pageCount");
-            List<Predicate> predicates = new ArrayList<>();
-            for (Integer id : ids) {
-                predicates.add(switch (id) {
-                    case 0 -> cb.lessThan(count, 50);
-                    case 1 -> cb.and(cb.greaterThanOrEqualTo(count, 50), cb.lessThan(count, 100));
-                    case 2 -> cb.and(cb.greaterThanOrEqualTo(count, 100), cb.lessThan(count, 200));
-                    case 3 -> cb.and(cb.greaterThanOrEqualTo(count, 200), cb.lessThan(count, 400));
-                    case 4 -> cb.and(cb.greaterThanOrEqualTo(count, 400), cb.lessThan(count, 600));
-                    case 5 -> cb.and(cb.greaterThanOrEqualTo(count, 600), cb.lessThan(count, 1000));
-                    case 6 -> cb.greaterThanOrEqualTo(count, 1000);
-                    default -> throw new APIException("Invalid pageCount bucket ID: " + id, HttpStatus.BAD_REQUEST);
-                });
-            }
-            Predicate combined = cb.or(predicates.toArray(Predicate[]::new));
+            Predicate combined = rangesPredicate(cb, count, ranges);
             return "not".equals(mode) ? cb.not(combined) : combined;
         };
     }

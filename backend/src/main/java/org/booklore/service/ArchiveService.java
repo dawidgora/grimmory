@@ -2,6 +2,7 @@ package org.booklore.service;
 
 import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
 import org.apache.commons.compress.archivers.sevenz.SevenZFile;
+import org.apache.commons.compress.archivers.zip.ZipFile;
 import com.github.junrar.exception.RarException;
 import lombok.extern.slf4j.Slf4j;
 import org.booklore.exception.ApiError;
@@ -18,10 +19,10 @@ import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import java.util.zip.ZipFile;
 
 @Slf4j
 @Service
@@ -43,13 +44,14 @@ public class ArchiveService {
     }
 
     private Stream<Entry> streamEntriesFromZip(Path path) throws IOException {
-        try (ZipFile file = new ZipFile(path.toFile())) {
-            // Stream to list so we enumerate all of them before the zipfile closes.
+        try (ZipFile file = ZipFile.builder().setPath(path).get()) {
+            // Collect to list then emit a stream so we collect all of the entries before
+            // we close the zip file.
             return file.stream()
-                    .toList()
-                    .stream()
                     .filter(e -> !e.isDirectory())
-                    .map(e -> new Entry(e.getName(), e.getSize()));
+                    .map(e -> new Entry(e.getName(), e.getSize()))
+                    .collect(Collectors.toList())
+                    .stream();
         }
     }
 

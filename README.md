@@ -1,6 +1,3 @@
-> [!NOTE]
-> Grimmory is an independent community fork of Booklore.
-
 <div align="center">
 
 <picture>
@@ -95,15 +92,6 @@ MYSQL_DATABASE=grimmory
 ### Step 2: Docker Compose
 
 Stable images are published from semantic-release tags on `main` as `vX.Y.Z` plus `latest`. Nightly images are built from `develop` and tagged `nightly`.
-
-> [!NOTE]
-> Migrating from an existing Booklore container? You can keep your current service name, `container_name`, database name and user, ports, and mounted volumes the same. Replace only the `image:` line with `grimmory/grimmory:<tag>` or `ghcr.io/grimmory-tools/grimmory:<tag>`.
-
-```yaml
-services:
-  booklore:
-    image: grimmory/grimmory:v2.2.1
-```
 
 Create a `docker-compose.yml` or copy and adapt [`deploy/compose/docker-compose.yml`](deploy/compose/docker-compose.yml):
 
